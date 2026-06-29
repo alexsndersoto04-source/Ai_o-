@@ -27,7 +27,6 @@ jobs:
         print('Abriendo y procesando archivo... Esto tomará un momento.')
         with bz2.open('wikipedia_es.xml.bz2', 'rt', encoding='utf-8') as f_in, open('dataset_wikipedia.txt', 'w', encoding='utf-8') as f_out:
             for line in f_in:
-                # Removemos etiquetas XML y códigos de formato usando expresiones regulares limpias
                 if '<' in line or '>' in line:
                     line = re.sub(r'<[^>]+>', '', line)
                 if '[[' in line:
@@ -48,3 +47,8 @@ jobs:
       run: |
         echo "Iniciando entrenamiento con el dataset de Wikipedia..."
         ./aio_control dataset_wikipedia.txt
+
+    - name: 6. Verificar Archivos Generados (Auditoría)
+      run: |
+        echo "=== LISTADO DE ARCHIVOS EN EL SERVIDOR ==="
+        ls -la
