@@ -11,23 +11,21 @@ jobs:
     - name: 1. Clonar el repositorio con los 5 motores
       uses: actions/checkout@v4
 
-    - name: 2. Instalar herramientas de compilación y Python
+    - name: 2. Instalar herramientas de compilación y Python (Versión Corregida)
       run: |
         sudo apt-get update
-        sudo apt-get install -y g++ make curl python3 python3-pip
-        pip3 install wikiextractor
+        sudo apt-get install -y g++ make curl python3 python3-pip git
+        # Instalamos la versión más reciente directamente desde GitHub que corrige el fallo de Python 3.12
+        pip3 install git+https://github.com/attardi/wikiextractor.git
 
     - name: 3. Descargar y Convertir Wikipedia a Texto Plano
       run: |
         echo "=== INICIANDO EXTRACCIÓN DE WIKIPEDIA ==="
-        # Descarga el volcado más reciente de artículos en español (comprimido en .bz2)
         curl -L "https://dumps.wikimedia.org/eswiki/latest/eswiki-latest-pages-articles-multistream.xml.bz2" -o wikipedia_es.xml.bz2
         
         echo "=== LIMPIANDO XML Y CONVIRTIENDO A TEXTO PLANO ==="
-        # Wikiextractor elimina etiquetas, tablas y enlaces, dejando solo texto plano
         python3 -m wikiextractor.WikiExtractor wikipedia_es.xml.bz2 --txt -o wiki_texto_limpio
         
-        # Consolidamos todos los fragmentos extraídos en un único archivo plano gigante
         cat wiki_texto_limpio/*/* > dataset_wikipedia.txt
         echo "=== TEXTO PLANO PREPARADO CON ÉXITO ==="
 
