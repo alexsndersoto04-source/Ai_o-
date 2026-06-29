@@ -11,22 +11,32 @@ jobs:
     - name: 1. Clonar el repositorio con los 5 motores
       uses: actions/checkout@v4
 
-    - name: 2. Instalar herramientas de compilación y Python (Versión Corregida)
+    - name: 2. Instalar herramientas de compilación
       run: |
         sudo apt-get update
-        sudo apt-get install -y g++ make curl python3 python3-pip git
-        # Instalamos la versión más reciente directamente desde GitHub que corrige el fallo de Python 3.12
-        pip3 install git+https://github.com/attardi/wikiextractor.git
+        sudo apt-get install -y g++ make curl python3 git
 
     - name: 3. Descargar y Convertir Wikipedia a Texto Plano
       run: |
-        echo "=== INICIANDO EXTRACCIÓN DE WIKIPEDIA ==="
+        echo "=== INICIANDO DESCARGA DE WIKIPEDIA ==="
         curl -L "https://dumps.wikimedia.org/eswiki/latest/eswiki-latest-pages-articles-multistream.xml.bz2" -o wikipedia_es.xml.bz2
         
-        echo "=== LIMPIANDO XML Y CONVIRTIENDO A TEXTO PLANO ==="
-        python3 -m wikiextractor.WikiExtractor wikipedia_es.xml.bz2 --txt -o wiki_texto_limpio
-        
-        cat wiki_texto_limpio/*/* > dataset_wikipedia.txt
+        echo "=== LIMPIANDO XML CON SCRIPT COMPATIBLE ==="
+        python3 -c "
+        import bz2, re
+        print('Abriendo y procesando archivo... Esto tomará un momento.')
+        with bz2.open('wikipedia_es.xml.bz2', 'rt', encoding='utf-8') as f_in, open('dataset_wikipedia.txt', 'w', encoding='utf-8') as f_out:
+            for line in f_in:
+                # Removemos etiquetas XML y códigos de formato usando expresiones regulares limpias
+                if '<' in line or '>' in line:
+                    line = re.sub(r'<[^>]+>', '', line)
+                if '[[' in line:
+                    line = re.sub(r'\[\[(?:[^|\]]*\|)?([^\]]+)\]\]', r'\1', line)
+                line = re.sub(r'\{\{[^\}]*\}\}', '', line)
+                cleaned = line.strip()
+                if cleaned and not cleaned.startswith(('===', '==', '*', '#')):
+                    f_out.write(cleaned + '\n')
+        "
         echo "=== TEXTO PLANO PREPARADO CON ÉXITO ==="
 
     - name: 4. Compilar el núcleo de Ai o
