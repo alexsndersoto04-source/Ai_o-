@@ -8,23 +8,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 1. Clonar el repositorio con los 5 motores
+    - name: 1. Clonar repositorio
       uses: actions/checkout@v4
 
-    - name: 2. Instalar herramientas de compilación
+    - name: 2. Instalar compiladores eficientes
       run: |
         sudo apt-get update
         sudo apt-get install -y g++ make curl python3 git
 
-    - name: 3. Descargar y Convertir Wikipedia a Texto Plano
+    - name: 3. Gestión Inteligente de Caché para Dataset
+      id: cache-wikipedia
+      uses: actions/cache@v4
+      with:
+        path: dataset_wikipedia.txt
+        key: dataset-wikipedia-v1
+
+    - name: 4. Descargar y Limpiar Wikipedia (Solo si no hay Caché)
+      if: steps.cache-wikipedia.outputs.cache-hit != 'true'
       run: |
-        echo "=== INICIANDO DESCARGA DE WIKIPEDIA ==="
+        echo "=== CACHÉ NO ENCONTRADO - DESCARGANDO WIKIPEDIA ==="
         curl -L "https://dumps.wikimedia.org/eswiki/latest/eswiki-latest-pages-articles-multistream.xml.bz2" -o wikipedia_es.xml.bz2
         
-        echo "=== LIMPIANDO XML CON SCRIPT COMPATIBLE ==="
+        echo "=== LIMPIANDO XML A TEXTO PLANO ==="
         python3 -c "
         import bz2, re
-        print('Abriendo y procesando archivo... Esto tomará un momento.')
         with bz2.open('wikipedia_es.xml.bz2', 'rt', encoding='utf-8') as f_in, open('dataset_wikipedia.txt', 'w', encoding='utf-8') as f_out:
             for line in f_in:
                 if '<' in line or '>' in line:
@@ -36,19 +43,25 @@ jobs:
                 if cleaned and not cleaned.startswith(('===', '==', '*', '#')):
                     f_out.write(cleaned + '\n')
         "
-        echo "=== TEXTO PLANO PREPARADO CON ÉXITO ==="
+        echo "=== DATASET CONFIGURADO Y GUARDADO EN CACHÉ ==="
 
-    - name: 4. Compilar el núcleo de Ai o
+    - name: 5. Compilar el motor definitivo de Ai o
       run: |
         g++ -O3 main.cpp -o aio_control
         chmod +x aio_control
 
-    - name: 5. Inyección de Datos en Streaming al Motor
+    - name: 6. Ejecución del Entrenamiento y Escritura de Pesos
       run: |
-        echo "Iniciando entrenamiento con el dataset de Wikipedia..."
         ./aio_control dataset_wikipedia.txt
 
-    - name: 6. Verificar Archivos Generados (Auditoría)
+    - name: 7. Auditoría Estricta de Archivos Finales
       run: |
-        echo "=== LISTADO DE ARCHIVOS EN EL SERVIDOR ==="
+        echo "=== LISTADO DE COMPROBACIÓN ==="
         ls -la
+
+    - name: 8. Generar Enlace de Descarga de los Pesos (Artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: Cerebro-Ai-O-Potencia-200
+        path: pesos_aio_maxima_potencia.txt
+        retention-days: 5
