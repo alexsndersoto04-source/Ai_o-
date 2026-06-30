@@ -1,80 +1,83 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 #include <cstdint>
 
-// Estructura central de Ai o: Optimizada para mínima huella de RAM
-struct MotorEntrenamiento {
-    std::unordered_map<uint64_t, std::unordered_map<int, uint32_t>> pesos;
+// Optimizamos la estructura de la matriz usando una clave única de 64 bits para los dos primeros tokens
+// Clave = (t1 << 32) | t2. El tercer token (t3) apunta al contador.
+std::unordered_map<uint64_t, std::unordered_map<int, int>> pesos;
 
-    // Función en línea para máxima velocidad de ejecución
-    inline void registrar_trigrama(int t1, int t2, int t3) {
-        // Combina dos IDs en una sola clave de 64 bits para ahorrar memoria
-        uint64_t clave = (static_cast<uint64_t>(t1) << 32) | static_cast<uint32_t>(t2);
-        pesos[clave][t3]++;
-    }
-};
-
-int main(int argc, char* argv[]) {
-    // OPTIMIZACIÓN CRÍTICA: Acelera drásticamente la lectura de archivos.
-    // Esto previene que GitHub cancele el proceso por "Timeout".
+int main() {
+    // REGLA DE ORO DE VELOCIDAD: Desactivamos la sincronización con C para lectura ultra rápida
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(NULL);
 
-    if (argc < 2) {
-        std::cerr << "Error: Se requiere el archivo de dataset.\n";
-        return 1;
-    }
+    std::string nombre_archivo = "dataset_wikipedia.txt";
+    std::ifstream archivo(nombre_archivo);
 
-    MotorEntrenamiento motor;
-    std::ifstream archivo(argv[1]);
     if (!archivo.is_open()) {
-        std::cerr << "Error crítico: No se pudo abrir el dataset " << argv[1] << "\n";
+        std::cerr << "Error crítico: No se pudo abrir el archivo " << nombre_archivo << "\n";
         return 1;
     }
 
-    std::string palabra;
-    std::vector<int> tokens;
-    std::unordered_map<std::string, int> diccionario;
-    int id_actual = 0;
+    std::cout << "Iniciando Motor 5 de Ai o (Flujo Lineal de Streaming)...\n";
+    std::cout << "Procesando dataset directamente en flujo continuo para proteger la RAM...\n";
 
-    // FASE 1: Absorción de datos y tokenización secuencial
-    while (archivo >> palabra) {
-        auto it = diccionario.find(palabra);
-        if (it == diccionario.end()) {
-            diccionario[palabra] = id_actual;
-            tokens.push_back(id_actual);
-            id_actual++;
-        } else {
-            tokens.push_back(it->second);
+    int t1 = -1, t2 = -1, t3 = -1;
+    long long trigramas_procesados = 0;
+
+    // Procesamiento en flujo continuo (Streaming)
+    // Guardamos solo los IDs numéricos necesarios para la ventana del trigrama
+    while (archivo >> t3) {
+        if (t1 != -1 && t2 != -1) {
+            // Combinamos t1 y t2 en una sola clave eficiente de 64 bits
+            uint64_t clave = (static_cast<uint64_t>(t1) << 32) | static_cast<uint32_t>(t2);
+            
+            // Registramos el aprendizaje directamente en el "cuaderno" de pesos
+            pesos[clave][t3]++;
+            trigramas_procesados++;
+
+            // Cada 10 millones de trigramas mostramos un progreso para saber que sigue vivo
+            if (trigramas_procesados % 10000000 == 0) {
+                std::cout << "-> Conexiones matemáticas registradas: " << trigramas_procesados << "\n";
+            }
         }
-    }
-    archivo.close(); // Liberamos el archivo inmediatamente para ahorrar recursos
-
-    // FASE 2: Construcción de la matriz estructurada
-    if (tokens.size() >= 3) {
-        for (size_t i = 0; i < tokens.size() - 2; ++i) {
-            motor.registrar_trigrama(tokens[i], tokens[i+1], tokens[i+2]);
-        }
+        // Desplazamiento lineal: Desechamos el token antiguo y movemos la ventana hacia adelante
+        t1 = t2;
+        t2 = t3;
     }
 
-    // FASE 3: Escritura limpia para acoplarse con los demás archivos y motores
-    std::ofstream salida("pesos_aio.txt");
-    if (!salida.is_open()) {
-        std::cerr << "Error crítico: No se pudo crear el archivo de pesos.\n";
+    archivo.close(); // El archivo se cierra, la RAM del texto está totalmente limpia
+    std::cout << "¡Absorción completada con éxito! Total de trigramas: " << trigramas_procesados << "\n";
+    std::cout << "Escribiendo matriz de conocimiento en pesos_aio.txt...\n";
+
+    // FASE DE ESCRITURA: Volcamos el cuaderno de la RAM al archivo físico final
+    std::ofstream archivo_salida("pesos_aio.txt");
+    if (!archivo_salida.is_open()) {
+        std::cerr << "Error al crear el archivo de salida de pesos.\n";
         return 1;
     }
 
-    for (auto const& [clave, transiciones] : motor.pesos) {
-        salida << clave << ":";
-        for (auto const& [siguiente, conteo] : transiciones) {
-            salida << siguiente << "," << conteo << " ";
+    for (const auto& par_primeros : pesos) {
+        uint64_t clave = par_primeros.first;
+        // Reconstruimos los IDs originales de t1 y t2 a partir de la clave de 64 bits
+        int orig_t1 = static_cast<int>(clave >> 32);
+        int orig_t2 = static_cast<int>(clave & 0xFFFFFFFF);
+
+        for (const auto& par_tercero : par_primeros.second) {
+            int orig_t3 = par_tercero.first;
+            int contador = par_tercero.second;
+
+            // Formato compacto: t1 t2 t3 contador
+            archivo_salida << orig_t1 << " " << orig_t2 << " " << orig_t3 << " " << contador << "\n";
         }
-        salida << "\n";
     }
-    salida.close();
+
+    archivo_salida.close();
+    std::cout << "=== PROCESO FINALIZADO CON ÉXITO: pesos_aio.txt ESTÁ LISTO ===\n";
 
     return 0;
 }
